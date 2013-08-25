@@ -31,7 +31,7 @@ struct BasicPacket
 		DATA_IMG_URLREQ,
 		DATA_TEXT_REQ,
 		DATA_TEXT_RES,
-		ERROR_CODE,
+		DATA_UPLOAD,
 		ERR
 	};
 
@@ -56,7 +56,7 @@ struct XMLPacket: public BasicPacket
 struct LogInPacket: public BasicPacket
 {
 	char username[20];
-	char password[20];
+	char password[33];
 };
 
 struct VideoReqPacket: public BasicPacket

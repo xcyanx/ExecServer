@@ -20,6 +20,10 @@
 //#define _HAS_STRICT_CONFORMANCE
 
 #include <time.h>
+#include <IdBaseComponent.hpp>
+#include <IdCoder.hpp>
+#include <IdCoder3to4.hpp>
+#include <IdCoderMIME.hpp>
 #include <map>
 #include <vector>
 //---------------------------------------------------------------------------
@@ -32,6 +36,7 @@ __published:	// IDE-managed Components
 	TSQLConnection *SQLConnection;
 	TMemo *Memo1;
 	TTimer *Timer1;
+	TIdDecoderMIME *Base64Dec;
 	void __fastcall FormCreate(TObject *Sender);
 	void __fastcall ServerServerAccept(TObject *Sender, TCustomIpClient *ClientSocket);
 	void __fastcall ServerClientAccept(TObject *Sender, TCustomIpClient *ClientSocket);
@@ -40,6 +45,9 @@ __published:	// IDE-managed Components
 
 private:	// User declarations
 	void _fastcall LoadXML();
+	void _fastcall dataReqRoutesServe(TCustomIpClient *ClientSocket);
+	void _fastcall dataReqRouteDataServe(TCustomIpClient *ClientSocket);
+	void _fastcall dataUpload2ServerServe(TCustomIpClient *ClientSocket);
 
 private:
 	struct _sessionKey

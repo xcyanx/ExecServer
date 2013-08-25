@@ -7,6 +7,7 @@
 #include "Packet.h"
 
 #include <boost/regex.hpp>
+#include <Data.Cloud.CloudAPI.hpp>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
@@ -15,6 +16,96 @@ TForm1 *Form1;
 __fastcall TForm1::TForm1(TComponent* Owner)
 	: TForm(Owner)
 {
+}
+//---------------------------------------------------------------------------
+void _fastcall TForm1::dataReqRoutesServe(TCustomIpClient *ClientSocket)
+{
+	char *test_xml = "<ROUTES><NAME RID=\"1\">TEST</NAME><NAME RID=\"2\">TEST2</NAME></ROUTES>";
+	//Build the routes xml.
+	String ipPort = ClientSocket->RemoteHost;
+	BasicPacket packet;
+
+	Memo1->Lines->Add(String("Client ")+map.find(ipPort)->second.username+String(" requested the routes."));
+
+	ClientSocket->ReceiveBuf(&packet, sizeof(BasicPacket));
+
+	NextPacketSize packetSize;
+
+	packetSize.PacketID = BasicPacket::DATA_PACKETSIZE;
+	packetSize.size = strlen(test_xml);
+
+	ClientSocket->SendBuf(&packetSize, sizeof(NextPacketSize));
+
+			//Remove it.
+	Sleep(100);
+
+	XMLPacket *xml;
+
+	xml = (XMLPacket*)malloc(sizeof(XMLPacket)+strlen(test_xml));
+
+	xml->PacketID = BasicPacket::DATA_XMLDATA;
+
+	memcpy(xml->xmlData, test_xml, strlen(test_xml));
+
+	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
+}
+//---------------------------------------------------------------------------
+void _fastcall TForm1::dataReqRouteDataServe(TCustomIpClient *ClientSocket)
+{
+	char *test_xml = "<ROUTES><NAME RID=\"1\">TEST</NAME><NAME RID=\"2\">TEST2</NAME></ROUTES>";
+	RRouteData test;
+	String ipPort = ClientSocket->RemoteHost;
+
+	ClientSocket->ReceiveBuf(&test, sizeof(RRouteData));
+
+	Memo1->Lines->Add(String("Client ")+map.find(ipPort)->second.username+String(" Requesting route data for route ")+String(test.route_name));
+
+	NextPacketSize npk;
+
+	npk.PacketID = BasicPacket::DATA_PACKETSIZE;
+	npk.size = 10;
+
+	ClientSocket->SendBuf(&npk, sizeof(NextPacketSize));
+
+	Sleep(100);
+
+	XMLPacket *xml;
+
+	xml = (XMLPacket*)malloc(sizeof(XMLPacket)+strlen(test_xml));
+
+	xml->PacketID = BasicPacket::DATA_ROUTEDATA;
+
+	memcpy(xml->xmlData, test_xml, strlen(test_xml));
+
+	//Memo1->Lines->Add(test.route_name);
+
+	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
+}
+//---------------------------------------------------------------------------
+void _fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
+{
+	NextPacketSize npk;
+
+	ClientSocket->ReceiveBuf(&npk, sizeof(NextPacketSize));
+
+	Memo1->Lines->Add(String("Client ")+map.find(ClientSocket->RemoteHost)->second.username+String(" is trying to upload a route to the server."));
+	Memo1->Lines->Add("Size: "+IntToStr(npk.size));
+
+	char *buffer = new char[npk.size+1];
+
+	memset(buffer, NULL, (npk.size+1)*sizeof(char));
+
+	ClientSocket->ReceiveBuf(buffer, (npk.size)*sizeof(char));
+
+	//Memo1->Lines->Add(TIdTextEncoding::ASCII->GetString(DecodeBytes64(String(buffer))));
+
+	ShowMessage(buffer);
+
+	//Memo1->Lines->Add(buffer);
+
+	Memo1->Lines->Add(IntToStr((int)strlen(buffer)));
+
+	//Memo1->Lines->Add(TEncoding::GetString(DecodeBytes64(String(buffer))));
 }
 //---------------------------------------------------------------------------
 void _fastcall TForm1::LoadXML()
@@ -88,17 +179,6 @@ void __fastcall TForm1::ServerServerAccept(TObject *Sender, TCustomIpClient *Cli
 		return;
     }
 
-	//ClientSocket->ReceiveBuf(&guid, sizeof(guid));
-
-	/*key.guid = guid;
-	key.timeLeft = time(NULL);
-
-
-	map[key] = "";
-	*/
-
-	//Memo1->Lines->Add(String("Guid: "+System::Sysutils::GUIDToString(guid)));
-
 	toReceive = ClientSocket->Receiveln().c_str();
 
 	boost::regex_split(std::back_inserter(l), toReceive);
@@ -113,8 +193,6 @@ void __fastcall TForm1::ServerServerAccept(TObject *Sender, TCustomIpClient *Cli
 	key.timeLeft = time(NULL);
 
 	map[ipPort.c_str()] = key;
-
-	ShowMessage(key.username);
 }
 //---------------------------------------------------------------------------
 
@@ -135,74 +213,26 @@ void __fastcall TForm1::ServerClientAccept(TObject *Sender, TCustomIpClient *Cli
 
 	ClientSocket->PeekBuf(&packet, sizeof(BasicPacket));
 
-	//key.guid = packet.guid;
-
-	/*if(map[key] == "")
-	{
-		map[key] = ipport;
-	}
-
-	if(map[key] != ipport)
-	{
-		Memo1->Lines->Add("Error on session key.");
-
-        //Send Error;
-
-		return;
-    }*/
-
-	char *test_xml = "<ROUTES><NAME>TEST</NAME><NAME>TEST2</NAME></ROUTES>";
-
 	switch(packet.PacketID)
 	{
 		case BasicPacket::DATA_REQUESTROUTES:
 		{
-			Memo1->Lines->Add(String("Client ")+ClientSocket->RemoteHost+String(" requested the routes."));
-
-			ClientSocket->ReceiveBuf(&packet, sizeof(BasicPacket));
-
-			NextPacketSize packetSize;
-
-			packetSize.PacketID = BasicPacket::DATA_PACKETSIZE;
-			packetSize.size = strlen(test_xml);
-
-			ClientSocket->SendBuf(&packetSize, sizeof(NextPacketSize));
-
-			//Remove it.
-			Sleep(100);
-
-			XMLPacket *xml;
-
-			xml = (XMLPacket*)malloc(sizeof(XMLPacket)+strlen(test_xml));
-
-			xml->PacketID =  BasicPacket::DATA_XMLDATA;
-
-			memcpy(xml->xmlData, test_xml, strlen(test_xml));
-
-			ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
-
-			break;
-		}
-		case BasicPacket::DATA_REQUESTROUTEDATA:
-		{
-			  RRouteData test;
-			  String ipPort = ClientSocket->RemoteHost;
-
-			  ClientSocket->ReceiveBuf(&test, sizeof(RRouteData));
-
-			  NextPacketSize npk;
-
-			  npk.PacketID = BasicPacket::DATA_REQUESTROUTEDATA;
-			  npk.size = 10;
-
-			  //Memo1->Lines->Add(test.route_name);
-
-			  Memo1->Lines->Add(String("Client ")+map.find(ipPort)->second.username+String(" Requesting route data for route ")+String(test.route_name));
-
-			  ClientSocket->SendBuf(&npk, sizeof(BasicPacket));
+			  dataReqRoutesServe(ClientSocket);
 
 			  break;
 		}
+		case BasicPacket::DATA_REQUESTROUTEDATA:
+		{
+			  dataReqRouteDataServe(ClientSocket);
+
+			  break;
+		}
+		case BasicPacket::DATA_UPLOAD:
+		{
+			dataUpload2ServerServe(ClientSocket);
+
+			break;
+        }
 		default:
 		{
             Memo1->Lines->Add("Unknown PacketID: "+IntToStr(packet.PacketID));

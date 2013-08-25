@@ -20,6 +20,7 @@ object Form1: TForm1
     Width = 625
     Height = 241
     Align = alCustom
+    ScrollBars = ssVertical
     TabOrder = 0
   end
   object XML: TXMLDocument
@@ -86,5 +87,10 @@ object Form1: TForm1
     OnTimer = Timer1Timer
     Left = 480
     Top = 8
+  end
+  object Base64Dec: TIdDecoderMIME
+    FillChar = '='
+    Left = 360
+    Top = 256
   end
 end
