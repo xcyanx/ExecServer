@@ -42,44 +42,25 @@ private:	// User declarations
 	void _fastcall LoadXML();
 
 private:
-	/*struct _sessionKey
+	struct _sessionKey
 	{
-		_GUID guid;
+		String username;
 		time_t timeLeft;
 	};
 
-	class compareClass
+	/*class compareClass
 	{
 		public:
-			bool operator()(const _sessionKey &L, const _sessionKey &R) const
+			bool operator()(const String &L, const String &R) const
 			{
-				_GUID Left = L.guid;
-				_GUID Right = R.guid;
-
-
-				if(Left.Data1 > Right.Data1)
+				if(L >= R)
 					return true;
-				else if(Left.Data1 < Right.Data1)
+				else
 					return false;
+			}
+	};*/
 
-				if(Left.Data2 > Right.Data2)
-					return true;
-				else if(Left.Data2 < Right.Data2)
-					return false;
-
-				if(Left.Data3 > Right.Data3)
-					return true;
-				else if(Left.Data3 < Right.Data3)
-					return false;
-
-				if(Left.Data4 > Right.Data4)
-					return true;
-				else if(Left.Data4 < Right.Data4)
-					return false;
-
-				return true;
-        	}
-	}; */
+	std::map<String, _sessionKey> map;
 
 	//std::map<_sessionKey, String, compareClass> map;
 

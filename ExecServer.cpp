@@ -5,6 +5,8 @@
 
 #include "ExecServer.h"
 #include "Packet.h"
+
+#include <boost/regex.hpp>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
@@ -49,9 +51,9 @@ void __fastcall TForm1::FormCreate(TObject *Sender)
 
 	LoadXML();
 
-	//Memo1->Lines->Add("Initiating the socket for the Server to Server communication.");
+	Memo1->Lines->Add("Initiating the socket for the Server to Server communication.");
 
-	//ServerServer->Active = true;
+	ServerServer->Active = true;
 
 	Memo1->Lines->Add("Initiating the socket for the Server to Client communication.");
 
@@ -70,10 +72,14 @@ void __fastcall TForm1::FormCreate(TObject *Sender)
 void __fastcall TForm1::ServerServerAccept(TObject *Sender, TCustomIpClient *ClientSocket)
 
 {
-	TGUID guid;
+	//TGUID guid;
 	//_sessionKey key;
 
-	Memo1->Lines->Add("GUID sent from the login Server.");
+	std::string toReceive;
+	std::list<std::string> l;
+	_sessionKey key;
+
+	//Memo1->Lines->Add("GUID sent from the login Server.");
 
 	if(ClientSocket->WaitForData(3000) == false)
 	{
@@ -82,7 +88,7 @@ void __fastcall TForm1::ServerServerAccept(TObject *Sender, TCustomIpClient *Cli
 		return;
     }
 
-	ClientSocket->ReceiveBuf(&guid, sizeof(guid));
+	//ClientSocket->ReceiveBuf(&guid, sizeof(guid));
 
 	/*key.guid = guid;
 	key.timeLeft = time(NULL);
@@ -91,7 +97,24 @@ void __fastcall TForm1::ServerServerAccept(TObject *Sender, TCustomIpClient *Cli
 	map[key] = "";
 	*/
 
-	Memo1->Lines->Add(String("Guid: "+System::Sysutils::GUIDToString(guid)));
+	//Memo1->Lines->Add(String("Guid: "+System::Sysutils::GUIDToString(guid)));
+
+	toReceive = ClientSocket->Receiveln().c_str();
+
+	boost::regex_split(std::back_inserter(l), toReceive);
+
+	std::string ipPort = *(l.begin());
+
+	l.pop_front();
+
+	std::string uname = *(l.begin());
+
+	key.username = uname.c_str();
+	key.timeLeft = time(NULL);
+
+	map[ipPort.c_str()] = key;
+
+	ShowMessage(key.username);
 }
 //---------------------------------------------------------------------------
 
@@ -162,9 +185,8 @@ void __fastcall TForm1::ServerClientAccept(TObject *Sender, TCustomIpClient *Cli
 		}
 		case BasicPacket::DATA_REQUESTROUTEDATA:
 		{
-			  Memo1->Lines->Add(String("Client ")+ClientSocket->RemoteHost+String(" Requesting route data."));
-
-              RRouteData test;
+			  RRouteData test;
+			  String ipPort = ClientSocket->RemoteHost;
 
 			  ClientSocket->ReceiveBuf(&test, sizeof(RRouteData));
 
@@ -173,7 +195,9 @@ void __fastcall TForm1::ServerClientAccept(TObject *Sender, TCustomIpClient *Cli
 			  npk.PacketID = BasicPacket::DATA_REQUESTROUTEDATA;
 			  npk.size = 10;
 
-              Memo1->Lines->Add(test.route_name);
+			  //Memo1->Lines->Add(test.route_name);
+
+			  Memo1->Lines->Add(String("Client ")+map.find(ipPort)->second.username+String(" Requesting route data for route ")+String(test.route_name));
 
 			  ClientSocket->SendBuf(&npk, sizeof(BasicPacket));
 
@@ -189,21 +213,23 @@ void __fastcall TForm1::ServerClientAccept(TObject *Sender, TCustomIpClient *Cli
 
 void __fastcall TForm1::Timer1Timer(TObject *Sender)
 {
-/*	std::map<_sessionKey, String, compareClass>::iterator it;
+	const static day = 60*60*24;
+
+	std::map<String, _sessionKey>::iterator it;
 
 	for(it = map.begin(); it != map.end(); it++)
 	{
-    	_sessionKey *key;
+		_sessionKey *key;
 
-		key = const_cast<_sessionKey*>(&(it->first));
+		key = const_cast<_sessionKey*>(&(it->second));
 
-		//key->timeLeft = time() - key->timeLeft;
+		if(difftime(time(NULL), key->timeLeft) >= day)
+		{
+        	Memo1->Lines->Add(String("Removed ")+it->second.username+String(" due to inactivity"));
 
-        Memo1->Lines->Add(FloatToStr(difftime(time(NULL), key->timeLeft)));
-
-		//if((int)it->first.timeLeft.Val
+			map.erase(it);
+		}
 	}
-*/
 }
 //---------------------------------------------------------------------------
 

@@ -31,7 +31,8 @@ struct BasicPacket
 		DATA_IMG_URLREQ,
 		DATA_TEXT_REQ,
 		DATA_TEXT_RES,
-		ERROR_CODE
+		ERROR_CODE,
+		ERR
 	};
 
 	int PacketID;

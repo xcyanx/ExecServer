@@ -83,7 +83,6 @@ object Form1: TForm1
     Top = 8
   end
   object Timer1: TTimer
-    Enabled = False
     OnTimer = Timer1Timer
     Left = 480
     Top = 8
