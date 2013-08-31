@@ -18,7 +18,7 @@ __fastcall TForm1::TForm1(TComponent* Owner)
 {
 }
 //---------------------------------------------------------------------------
-void _fastcall TForm1::dataReqRoutesServe(TCustomIpClient *ClientSocket)
+void __fastcall TForm1::dataReqRoutesServe(TCustomIpClient *ClientSocket)
 {
 	char *test_xml = "<ROUTES><NAME RID=\"1\">TEST</NAME><NAME RID=\"2\">TEST2</NAME></ROUTES>";
 	//Build the routes xml.
@@ -50,7 +50,7 @@ void _fastcall TForm1::dataReqRoutesServe(TCustomIpClient *ClientSocket)
 	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
 }
 //---------------------------------------------------------------------------
-void _fastcall TForm1::dataReqRouteDataServe(TCustomIpClient *ClientSocket)
+void __fastcall TForm1::dataReqRouteDataServe(TCustomIpClient *ClientSocket)
 {
 	char *test_xml = "<ROUTES><NAME RID=\"1\">TEST</NAME><NAME RID=\"2\">TEST2</NAME></ROUTES>";
 	RRouteData test;
@@ -82,7 +82,7 @@ void _fastcall TForm1::dataReqRouteDataServe(TCustomIpClient *ClientSocket)
 	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
 }
 //---------------------------------------------------------------------------
-void _fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
+void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 {
 	NextPacketSize npk;
 
@@ -95,7 +95,7 @@ void _fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 
 	memset(buffer, NULL, (npk.size+1)*sizeof(char));
 
-	ClientSocket->ReceiveBuf(buffer, (npk.size)*sizeof(char));
+	ClientSocket->ReceiveBuf(buffer, (npk.size)*sizeof(char), MSG_WAITALL);
 
 	//Memo1->Lines->Add(TIdTextEncoding::ASCII->GetString(DecodeBytes64(String(buffer))));
 
@@ -108,7 +108,7 @@ void _fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 	//Memo1->Lines->Add(TEncoding::GetString(DecodeBytes64(String(buffer))));
 }
 //---------------------------------------------------------------------------
-void _fastcall TForm1::LoadXML()
+void __fastcall TForm1::LoadXML()
 {
 	String path = ExtractFilePath(Application->ExeName);
 

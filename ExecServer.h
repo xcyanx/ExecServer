@@ -44,10 +44,10 @@ __published:	// IDE-managed Components
 
 
 private:	// User declarations
-	void _fastcall LoadXML();
-	void _fastcall dataReqRoutesServe(TCustomIpClient *ClientSocket);
-	void _fastcall dataReqRouteDataServe(TCustomIpClient *ClientSocket);
-	void _fastcall dataUpload2ServerServe(TCustomIpClient *ClientSocket);
+	void __fastcall LoadXML();
+	void __fastcall dataReqRoutesServe(TCustomIpClient *ClientSocket);
+	void __fastcall dataReqRouteDataServe(TCustomIpClient *ClientSocket);
+	void __fastcall dataUpload2ServerServe(TCustomIpClient *ClientSocket);
 
 private:
 	struct _sessionKey
