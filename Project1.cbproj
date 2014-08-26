@@ -34,17 +34,23 @@
 			<CfgParent>Base</CfgParent>
 			<Base>true</Base>
 		</PropertyGroup>
+		<PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Cfg_2)'=='true') or '$(Cfg_2_Win32)'!=''">
+			<Cfg_2_Win32>true</Cfg_2_Win32>
+			<CfgParent>Cfg_2</CfgParent>
+			<Cfg_2>true</Cfg_2>
+			<Base>true</Base>
+		</PropertyGroup>
 		<PropertyGroup Condition="'$(Base)'!=''">
 			<_TCHARMapping>wchar_t</_TCHARMapping>
 			<ProjectType>CppVCLApplication</ProjectType>
-			<ILINK_LibraryPath>..\Server\;ExecServer\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
+			<ILINK_LibraryPath>..\..\..\..\Desktop\;..\..\..\..\Desktop\rapidxml-1.13\rapidxml-1.13\;..\..\..\..\..\B171~1\AppData\Local\Temp\;..\Server\;ExecServer\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
 			<PackageImports>IPIndyImpl;bindcompfmx;fmx;rtl;dbrtl;IndySystem;DbxClientDriver;bindcomp;inetdb;DBXInterBaseDriver;DataSnapClient;DataSnapCommon;DataSnapServer;DataSnapProviderClient;xmlrtl;DbxCommonDriver;IndyProtocols;DBXMySQLDriver;dbxcds;soaprtl;bindengine;DBXOracleDriver;dsnap;DBXInformixDriver;IndyCore;fmxase;DBXFirebirdDriver;inet;fmxobj;inetdbxpress;DBXSybaseASADriver;fmxdae;dbexpress;DataSnapIndy10ServerTransport;$(PackageImports)</PackageImports>
 			<Multithreaded>true</Multithreaded>
 			<DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
 			<AllPackageLibs>rtl.lib;vcl.lib;xmlrtl.lib;inet.lib;dbrtl.lib;dbexpress.lib;DbxCommonDriver.lib;dsnap.lib;DBXMySQLDriver.lib;IndySystem.lib;IndyProtocols.lib;IndyCore.lib;CloudService.lib;IPIndyImpl.lib;CustomIPTransport.lib;DbxClientDriver.lib</AllPackageLibs>
 			<Icon_MainIcon>$(BDS)\bin\cbuilder_PROJECTICON.ico</Icon_MainIcon>
 			<UsingDelphiRTL>true</UsingDelphiRTL>
-			<IncludePath>..\Server\;ExecServer\;$(IncludePath)</IncludePath>
+			<IncludePath>..\..\..\..\Desktop\;..\..\..\..\Desktop\rapidxml-1.13\rapidxml-1.13\;..\..\..\..\..\B171~1\AppData\Local\Temp\;..\Server\;ExecServer\;$(IncludePath)</IncludePath>
 			<DCC_CBuilderOutput>JPHNE</DCC_CBuilderOutput>
 			<DynamicRTL>true</DynamicRTL>
 			<UsePackages>true</UsePackages>
@@ -83,13 +89,28 @@
 			<ILINK_TranslatedLibraryPath>$(BDSLIB)\$(PLATFORM)\debug\$(LANGDIR);$(ILINK_TranslatedLibraryPath)</ILINK_TranslatedLibraryPath>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
-			<LinkPackageImports>rtl.bpi;vcl.bpi;xmlrtl.bpi;inet.bpi;dbrtl.bpi;dbexpress.bpi;DbxCommonDriver.bpi;dsnap.bpi;DBXMySQLDriver.bpi</LinkPackageImports>
+			<UsePackages>false</UsePackages>
+			<DynamicRTL>false</DynamicRTL>
+			<UsingDelphiRTL>false</UsingDelphiRTL>
+			<LinkPackageStatics>rtl.lib;vcl.lib;xmlrtl.lib;inet.lib;dbrtl.lib;dbexpress.lib;DbxCommonDriver.lib;dsnap.lib;DBXMySQLDriver.lib;IndySystem.lib;IndyProtocols.lib;IndyCore.lib;CloudService.lib;IPIndyImpl.lib;CustomIPTransport.lib;DbxClientDriver.lib</LinkPackageStatics>
+			<VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+			<VerInfo_Locale>1033</VerInfo_Locale>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Cfg_2)'!=''">
 			<Defines>NDEBUG;$(Defines)</Defines>
 			<TASM_Debugging>None</TASM_Debugging>
 		</PropertyGroup>
+		<PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
+			<LinkPackageImports>rtl.bpi;vcl.bpi;xmlrtl.bpi;inet.bpi;dbrtl.bpi;dbexpress.bpi;DbxCommonDriver.bpi;dsnap.bpi;DBXMySQLDriver.bpi;IndySystem.bpi;IndyProtocols.bpi;IndyCore.bpi;CloudService.bpi;IPIndyImpl.bpi;DbxClientDriver.bpi</LinkPackageImports>
+			<LinkPackageStatics>CustomIPTransport.lib</LinkPackageStatics>
+		</PropertyGroup>
 		<ItemGroup>
+			<None Include="..\..\..\..\Desktop\base64.h">
+				<BuildOrder>4</BuildOrder>
+			</None>
+			<CppCompile Include="BaseXML.c">
+				<BuildOrder>3</BuildOrder>
+			</CppCompile>
 			<CppCompile Include="ExecServer.cpp">
 				<Form>Form1</Form>
 				<FormType>dfm</FormType>
@@ -102,6 +123,9 @@
 			<CppCompile Include="Project1.cpp">
 				<BuildOrder>0</BuildOrder>
 			</CppCompile>
+			<None Include="Utils.h">
+				<BuildOrder>5</BuildOrder>
+			</None>
 			<FormResources Include="ExecServer.dfm"/>
 			<BuildConfiguration Include="Release">
 				<Key>Cfg_2</Key>

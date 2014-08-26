@@ -5,9 +5,15 @@
 
 #include "ExecServer.h"
 #include "Packet.h"
+#include <System.IOUtils.hpp>
 
 #include <boost/regex.hpp>
 #include <Data.Cloud.CloudAPI.hpp>
+#include "memmem.c"
+#include "Utils.h"
+#include "base64.h"
+#include <string.h>
+#include <fstream>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
@@ -16,6 +22,43 @@ TForm1 *Form1;
 __fastcall TForm1::TForm1(TComponent* Owner)
 	: TForm(Owner)
 {
+	Application->OnException = AppException;
+}
+//---------------------------------------------------------------------------
+void __fastcall TForm1::AppException(TObject *Sender, Exception *E)
+{
+  Application->ShowException(E);
+  Application->Terminate();
+}
+//---------------------------------------------------------------------------
+std::vector<TForm1::Pair> TForm1::findXMLTag(char *XMLString, char* XMLTag, int XMLSize)
+{
+	void *found = XMLString;
+	int XMLTagLen = strlen(XMLTag);
+	std::vector<TForm1::Pair> result;
+    TForm1::Pair pair;
+	AnsiString XMLTagEnd = "</";
+	XMLTagEnd += &XMLTag[1];
+
+	while(found = memmem(found, XMLSize - ((char*)found - XMLString), XMLTag, XMLTagLen))
+	{
+		if(found == NULL)
+			return result;
+
+		found = (char*)found + XMLTagLen;
+
+		pair.start = int((char*)found - XMLString);
+
+		found = memmem(found, XMLSize - ((char*)found - XMLString), XMLTagEnd.c_str(), XMLTagEnd.Length());
+
+		pair.end = int((char*)found - XMLString);
+
+		found = (char*)found + XMLTagEnd.Length();
+
+		result.push_back(pair);
+    }
+
+	return result;
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::dataReqRoutesServe(TCustomIpClient *ClientSocket)
@@ -48,6 +91,8 @@ void __fastcall TForm1::dataReqRoutesServe(TCustomIpClient *ClientSocket)
 	memcpy(xml->xmlData, test_xml, strlen(test_xml));
 
 	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
+
+	free(xml);
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::dataReqRouteDataServe(TCustomIpClient *ClientSocket)
@@ -80,37 +125,360 @@ void __fastcall TForm1::dataReqRouteDataServe(TCustomIpClient *ClientSocket)
 	//Memo1->Lines->Add(test.route_name);
 
 	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
+
+	free(xml);
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 {
 	NextPacketSize npk;
+	TXMLDocument *xml;
+	AnsiString filename;
+	String routeName;
+	String uname = map.find(ClientSocket->RemoteHost)->second.username;
+	int lastRouteId;
+
+
+	ThreadLock->Enter();
 
 	ClientSocket->ReceiveBuf(&npk, sizeof(NextPacketSize));
 
-	Memo1->Lines->Add(String("Client ")+map.find(ClientSocket->RemoteHost)->second.username+String(" is trying to upload a route to the server."));
-	Memo1->Lines->Add("Size: "+IntToStr(npk.size));
+	Memo1->Lines->Add(String("Client ")+uname+String(" is trying to upload a route to the server."));
 
-	char *buffer = new char[npk.size+1];
+	char *buffer = (char*)malloc( sizeof(char)*(npk.size+1));
+	//char *buffer = new char[npk.size+1];
 
 	memset(buffer, NULL, (npk.size+1)*sizeof(char));
 
 	ClientSocket->ReceiveBuf(buffer, (npk.size)*sizeof(char), MSG_WAITALL);
 
-	//Memo1->Lines->Add(TIdTextEncoding::ASCII->GetString(DecodeBytes64(String(buffer))));
+	std::string final_xml(buffer, npk.size);
 
-	ShowMessage(buffer);
+	xml = new TXMLDocument(this);
 
-	//Memo1->Lines->Add(buffer);
 
-	Memo1->Lines->Add(IntToStr((int)strlen(buffer)));
+	std::vector<TForm1::Pair> pair = findXMLTag(buffer, "<Image>", npk.size+1);
 
-	//Memo1->Lines->Add(TEncoding::GetString(DecodeBytes64(String(buffer))));
+	//Λάθος επειδή αλλάζει ο vector όταν αλλάζει απο binary σε base64.
+	for(int i = pair.size() - 1; i >= 0 ; i--)
+	{
+		int new_size;
+		char* tmp = base64(&buffer[pair[i].start], pair[i].end - pair[i].start, &new_size);
+
+		final_xml = binary_replace(final_xml, pair[i].start, pair[i].end, tmp);
+
+		free(tmp);
+	}
+
+	pair = findXMLTag(const_cast<char*>(final_xml.c_str()), "<Video>", final_xml.size());
+
+	for(int i = pair.size() - 1; i >= 0; i--)
+	{
+		int new_size;
+		char* tmp = base64(&buffer[pair[i].start], pair[i].end - pair[i].start, &new_size);
+
+		final_xml = binary_replace(final_xml, pair[i].start, pair[i].end, tmp);
+
+		free(tmp);
+	}
+
+	pair = findXMLTag(const_cast<char*>(final_xml.c_str()), "<Text>", final_xml.size());
+
+	for(int i = pair.size() - 1; i >= 0; i--)
+	{
+		int new_size;
+		char* tmp = base64(&buffer[pair[i].start], pair[i].end - pair[i].start, &new_size);
+
+		final_xml = binary_replace(final_xml, pair[i].start, pair[i].end, tmp);
+
+		free(tmp);
+	}
+
+	xml->LoadFromXML(AnsiString(final_xml.c_str()));
+
+
+	_di_IXMLNodeList root = xml->ChildNodes->GetNode("root")->GetChildNodes();
+
+
+
+	filename = xml->ChildNodes->GetNode("root")->GetAttribute("filename");
+	routeName = filename;
+
+	filename += ".xml";
+
+	//Add the route into the database.
+	try{
+		int userId;
+
+		String SQLQuery = "SELECT idUsers FROM users WHERE Username = :uname";
+		TSQLQuery *SQL = new TSQLQuery(NULL);
+
+		SQL->SQLConnection = SQLConnection;
+		SQL->SQL->Text = SQLQuery;
+
+		SQL->ParamByName("uname")->AsAnsiString =  map.find(ClientSocket->RemoteHost)->second.username;
+
+		SQL->Open();
+
+		SQL->First();
+
+		userId = SQL->FieldByName("idUsers")->AsInteger;
+
+		SQL->Close();
+
+		SQLQuery = "INSERT INTO routes(routeName, userID) VALUES(:rtname, :userid)";
+		SQL->SQL->Text = SQLQuery;
+		SQL->ParamByName("rtname")->AsAnsiString = routeName;
+		SQL->ParamByName("userid")->AsInteger = userId;
+
+		SQL->ExecSQL();
+
+		SQLQuery = "SELECT MAX(idRoutes) as lastID FROM routes ";
+		SQL->SQL->Text = SQLQuery;
+		SQL->Open();
+		SQL->First();
+		lastRouteId = SQL->FieldByName("lastID")->AsInteger;
+		SQL->Close();
+
+		delete SQL;
+	}
+	catch(Exception &e)
+	{
+        ShowMessage(e.ToString());
+	}
+	//The route has been added into the database.
+
+	//extract the info about each point(Lon, Lat), Image, Video, Text
+	//place those info in the float like class
+	//And then perform a douglas-peckeur run on those points.
+	//At last, reconstruct the XML file and store it, while updating the sql server.
+
+	int child_count = root->GetCount();
+	for(int i = 0; i < child_count; i++)
+	{
+		 int point_count;
+
+		 _di_IXMLNodeList point = root->GetNode(i)->GetChildNodes();
+
+		 point_count = point->GetCount();
+
+		 _di_IXMLNode node = point->GetNode("Coords");
+		 String Lat, Lon, DateTime;
+
+		 Lat = node->GetChildNodes()->GetNode("Lat")->GetText();
+		 Lon = node->GetChildNodes()->GetNode("Lon")->GetText();
+		 DateTime = point->GetNode("DateTime")->GetText();
+
+		 try
+		 {
+			String SQLQuery = "INSERT INTO waypoints(routeID, Lon, Lat, DateTime) VALUES(:rtid, :lon, :lat, :dt)";
+			TSQLQuery *SQL = new TSQLQuery(NULL);
+
+			SQL->SQLConnection = SQLConnection;
+			SQL->SQL->Text = SQLQuery;
+
+
+			SQL->ParamByName("rtid")->AsInteger = lastRouteId;
+			SQL->ParamByName("lon")->AsAnsiString = Lon;
+			SQL->ParamByName("lat")->AsAnsiString = Lat;
+			SQL->ParamByName("dt")->AsAnsiString = DateTime;
+
+			SQL->ExecSQL();
+
+			delete SQL;
+		 }
+		 catch (Exception &e)
+		 {
+			ShowMessage(e.ToString());
+		 }
+
+		 String Data = point->GetNode("Text")->GetText();
+		 handleData(Data, TypeOfMedia::Text);
+
+		 Data = point->GetNode("Image")->GetText();
+		 handleData(Data, TypeOfMedia::Image);
+
+		 Data = point->GetNode("Video")->GetText();
+		 handleData(Data, TypeOfMedia::Video);
+	}
+
+	xml->SaveToFile(filename.c_str());
+
+    xml->Active = false;
+
+
+	free(buffer);
+	delete xml;
+
+    buildXML(lastRouteId);
+
+	Memo1->Lines->Add(String("Client ")+uname+String(" has uploaded the route successfully."));
+
+	ThreadLock->Leave();
 }
+
+//---------------------------------------------------------------------------
+void __fastcall TForm1::buildXML(int routeId)
+{
+try
+{
+	String SQLQuery = "SELECT * FROM waypoints LEFT OUTER JOIN media ON waypoints.idWaypoints =  media.WaypointID "
+					  "WHERE routeId = :rtid";
+	TSQLQuery *SQL = new TSQLQuery(NULL);
+	int rowsAffected;
+
+	SQL->SQLConnection = SQLConnection;
+	SQL->SQL->Text = SQLQuery;
+	SQL->ParamByName("rtid")->AsInteger = routeId;
+	SQL->Open();
+	rowsAffected = SQL->RowsAffected;
+	SQL->First();
+
+	TXMLDocument *xml = new TXMLDocument(this);
+	_di_IXMLNode node, root;
+
+	xml->Options = TXMLDocOptions(2);
+	xml->Active = true;
+
+	root = xml->AddChild("locations");
+
+	String Lat, Lon;
+	for(int i = 0; i < rowsAffected; i++)
+	{
+		String media;
+		int mediaId;
+
+		if(Lat != SQL->FieldByName("Lat")->AsAnsiString && Lon != SQL->FieldByName("Lon")->AsAnsiString)
+		{
+			node = root->AddChild("point");
+
+			node->AddChild("Lat")->SetText(SQL->FieldByName("Lat")->AsAnsiString);
+			node->AddChild("Lon")->SetText(SQL->FieldByName("Lon")->AsAnsiString);
+
+			Lat = SQL->FieldByName("Lat")->AsAnsiString;
+			Lon = SQL->FieldByName("Lon")->AsAnsiString;
+		}
+
+		if(!SQL->FieldByName("idMedia")->IsNull)
+		{
+			int tom;
+			mediaId = SQL->FieldByName("idMedia")->AsInteger;
+
+			tom = SQL->FieldByName("TypeOfMedia")->AsInteger;
+
+			if(tom == TypeOfMedia::Text)
+			{
+				media = "TextID";
+			}
+			else if(tom == TypeOfMedia::Image)
+			{
+				media = "ImgID";
+			}
+			else
+			{
+				media = "VidID";
+			}
+
+			node->AddChild(media)->SetText(IntToStr(mediaId));
+		}
+
+		SQL->Next();
+	}
+
+	SQL->Close();
+
+	xml->SaveToFile(IntToStr(routeId));
+	xml->Active = false;
+	delete xml;
+	delete SQL;
+}
+catch(Exception &e)
+{
+    ShowMessage(e.ToString());
+}
+}
+
+//---------------------------------------------------------------------------
+int __fastcall TForm1::handleData(String Data, int tom)
+{
+	if(Data == "")
+		return -1;
+
+	int lastWpId;
+	String SQLQuery = "INSERT INTO media(URLPath, WaypointID, TypeOfMedia) VALUES(:url, :wpid, :tom)";
+	TSQLQuery *SQL = new TSQLQuery(NULL);
+	TFileStream *stream = NULL;
+
+	SQL->SQLConnection = SQLConnection;
+	SQL->SQL->Text = SQLQuery;
+
+	switch(tom)
+	{
+		case TypeOfMedia::Text:
+		{
+			SQL->ParamByName("tom")->AsAnsiString = TypeOfMedia::Text;
+			SQL->ParamByName("url")->AsAnsiString = Base64Dec->DecodeString(Data);
+			break;
+		}
+		case TypeOfMedia::Image:
+		{
+			stream = new TFileStream("testfile.jpg", fmCreate);
+		}
+		case TypeOfMedia::Video:
+		{
+			if(stream == NULL)
+				stream = new TFileStream("testfile.m4v", fmCreate);
+
+			Base64Dec->DecodeBegin(stream);
+			Base64Dec->DecodeStream(Data, stream);
+			Base64Dec->DecodeEnd();
+
+			SQL->ParamByName("tom")->AsAnsiString = tom;
+			SQL->ParamByName("url")->AsAnsiString = stream->FileName; //path
+
+			delete stream;
+			break;
+		}
+	}
+
+	lastWpId = lastId("idWaypoints", "waypoints");
+
+	SQL->ParamByName("wpid")->AsAnsiString = IntToStr(lastWpId);
+
+
+	SQL->ExecSQL();
+
+	delete SQL;
+
+	return lastId("idMedia", "media");
+}
+
+//---------------------------------------------------------------------------
+int __fastcall TForm1::lastId(String fieldName, String tableName)
+{
+	int result;
+	String SQLQuery = String("SELECT MAX(")+fieldName+String(") as last FROM ")+tableName;
+	TSQLQuery *SQL = new TSQLQuery(NULL);
+
+	SQL->SQLConnection = SQLConnection;
+	SQL->SQL->Text = SQLQuery;
+
+	SQL->Open();
+	SQL->First();
+
+	result = SQL->FieldByName("last")->AsInteger;
+
+	SQL->Close();
+
+	delete SQL;
+
+	return result;
+}
+
 //---------------------------------------------------------------------------
 void __fastcall TForm1::LoadXML()
 {
-	String path = ExtractFilePath(Application->ExeName);
+	path = ExtractFilePath(Application->ExeName);
 
 	XML->FileName = path+(String)"Options.xml";
 	XML->Active = true;
@@ -131,12 +499,16 @@ void __fastcall TForm1::LoadXML()
 	SQLConnection->Params->Add("HostName="+host);
 	SQLConnection->Params->Add("Password="+pass);
 
+	XML->Active = false;
+
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TForm1::FormCreate(TObject *Sender)
 {
 	Memo1->Lines->Add("Initiating Server.");
+
+	ThreadLock = new TCriticalSection();
 
 	Memo1->Lines->Add("Loading the options file.");
 
@@ -202,14 +574,16 @@ void __fastcall TForm1::ServerClientAccept(TObject *Sender, TCustomIpClient *Cli
 	BasicPacket packet;
 	//_sessionKey key;
 
-	String ipport = ClientSocket->RemoteHost+String(":")+ClientSocket->RemotePort;
+	//String ipport = ClientSocket->RemoteHost+String(":")+ClientSocket->RemotePort;
 
 	if(!ClientSocket->WaitForData(3000))
 	{
 		Memo1->Lines->Add("Error on receiving data from the client.");
 
 		return;
-    }
+	}
+
+	CoInitialize(NULL);
 
 	ClientSocket->PeekBuf(&packet, sizeof(BasicPacket));
 
@@ -236,8 +610,10 @@ void __fastcall TForm1::ServerClientAccept(TObject *Sender, TCustomIpClient *Cli
 		default:
 		{
             Memo1->Lines->Add("Unknown PacketID: "+IntToStr(packet.PacketID));
-        }
+		}
 	}  //switch end
+
+	CoUninitialize();
 }
 //---------------------------------------------------------------------------
 
@@ -262,4 +638,5 @@ void __fastcall TForm1::Timer1Timer(TObject *Sender)
 	}
 }
 //---------------------------------------------------------------------------
+
 

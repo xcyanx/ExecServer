@@ -93,4 +93,14 @@ object Form1: TForm1
     Left = 360
     Top = 256
   end
+  object Base64Enc: TIdEncoderMIME
+    FillChar = '='
+    Left = 424
+    Top = 256
+  end
+  object SQLQuery1: TSQLQuery
+    Params = <>
+    Left = 296
+    Top = 256
+  end
 end

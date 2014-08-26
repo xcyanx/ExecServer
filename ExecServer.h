@@ -24,6 +24,8 @@
 #include <IdCoder.hpp>
 #include <IdCoder3to4.hpp>
 #include <IdCoderMIME.hpp>
+#include <Xml.adomxmldom.hpp>
+#include <Data.FMTBcd.hpp>
 #include <map>
 #include <vector>
 //---------------------------------------------------------------------------
@@ -37,17 +39,32 @@ __published:	// IDE-managed Components
 	TMemo *Memo1;
 	TTimer *Timer1;
 	TIdDecoderMIME *Base64Dec;
+	TIdEncoderMIME *Base64Enc;
+	TSQLQuery *SQLQuery1;
 	void __fastcall FormCreate(TObject *Sender);
 	void __fastcall ServerServerAccept(TObject *Sender, TCustomIpClient *ClientSocket);
 	void __fastcall ServerClientAccept(TObject *Sender, TCustomIpClient *ClientSocket);
 	void __fastcall Timer1Timer(TObject *Sender);
 
+private:
+	struct Pair
+	{
+		unsigned long start;
+		unsigned long end;
+	};
+
+	enum TypeOfMedia { Text = 1, Video, Image };
 
 private:	// User declarations
 	void __fastcall LoadXML();
 	void __fastcall dataReqRoutesServe(TCustomIpClient *ClientSocket);
 	void __fastcall dataReqRouteDataServe(TCustomIpClient *ClientSocket);
 	void __fastcall dataUpload2ServerServe(TCustomIpClient *ClientSocket);
+	void __fastcall AppException(TObject *Sender, Exception *E);
+	int __fastcall lastId(String fieldName, String tableName);
+	int __fastcall handleData(String Data, int tom);
+	void __fastcall buildXML(int routeId);
+	std::vector<Pair> findXMLTag(char *XMLString, char* XMLTag, int XMLSize);
 
 private:
 	struct _sessionKey
@@ -69,6 +86,8 @@ private:
 	};*/
 
 	std::map<String, _sessionKey> map;
+	String path;
+	TCriticalSection *ThreadLock;
 
 	//std::map<_sessionKey, String, compareClass> map;
 
