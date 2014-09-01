@@ -14,14 +14,47 @@ object Form1: TForm1
   OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
-  object Memo1: TMemo
-    Left = 8
-    Top = 8
-    Width = 625
-    Height = 241
-    Align = alCustom
-    ScrollBars = ssVertical
+  object PageControl1: TPageControl
+    Left = 0
+    Top = 0
+    Width = 640
+    Height = 300
+    ActivePage = TabSheet1
+    Align = alClient
     TabOrder = 0
+    object TabSheet1: TTabSheet
+      Caption = 'Server Log'
+      object Memo1: TMemo
+        Left = 0
+        Top = 0
+        Width = 632
+        Height = 272
+        Align = alClient
+        TabOrder = 0
+      end
+    end
+    object TabSheet2: TTabSheet
+      Caption = 'Server Errors'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clBlack
+      Font.Height = -11
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ImageIndex = 1
+      ParentFont = False
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
+      object Memo2: TMemo
+        Left = 0
+        Top = 0
+        Width = 632
+        Height = 272
+        Align = alClient
+        TabOrder = 0
+      end
+    end
   end
   object XML: TXMLDocument
     FileName = 'Options.xml'
@@ -31,13 +64,13 @@ object Form1: TForm1
   end
   object ServerClient: TTcpServer
     OnAccept = ServerClientAccept
-    Left = 104
-    Top = 8
+    Left = 392
+    Top = 16
   end
   object ServerServer: TTcpServer
     OnAccept = ServerServerAccept
-    Left = 24
-    Top = 8
+    Left = 360
+    Top = 16
   end
   object SQLConnection: TSQLConnection
     ConnectionName = 'MySQLConnection'

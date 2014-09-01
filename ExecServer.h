@@ -26,6 +26,13 @@
 #include <IdCoderMIME.hpp>
 #include <Xml.adomxmldom.hpp>
 #include <Data.FMTBcd.hpp>
+#include <Vcl.ComCtrls.hpp>
+#include <Data.Bind.Components.hpp>
+#include <Data.Bind.EngExt.hpp>
+#include <System.Bindings.Outputs.hpp>
+#include <System.Rtti.hpp>
+#include <Vcl.Bind.DBEngExt.hpp>
+#include <Vcl.Bind.Editors.hpp>
 #include <map>
 #include <vector>
 //---------------------------------------------------------------------------
@@ -36,11 +43,15 @@ __published:	// IDE-managed Components
 	TTcpServer *ServerClient;
 	TTcpServer *ServerServer;
 	TSQLConnection *SQLConnection;
-	TMemo *Memo1;
 	TTimer *Timer1;
 	TIdDecoderMIME *Base64Dec;
 	TIdEncoderMIME *Base64Enc;
 	TSQLQuery *SQLQuery1;
+	TPageControl *PageControl1;
+	TTabSheet *TabSheet1;
+	TTabSheet *TabSheet2;
+	TMemo *Memo1;
+	TMemo *Memo2;
 	void __fastcall FormCreate(TObject *Sender);
 	void __fastcall ServerServerAccept(TObject *Sender, TCustomIpClient *ClientSocket);
 	void __fastcall ServerClientAccept(TObject *Sender, TCustomIpClient *ClientSocket);
@@ -64,6 +75,8 @@ private:	// User declarations
 	int __fastcall lastId(String fieldName, String tableName);
 	int __fastcall handleData(String Data, int tom);
 	void __fastcall buildXML(int routeId);
+	void __fastcall buildRouteList(int routeId);
+	void __fastcall updateRouteList(int routeId);
 	std::vector<Pair> findXMLTag(char *XMLString, char* XMLTag, int XMLSize);
 
 private:
@@ -86,7 +99,7 @@ private:
 	};*/
 
 	std::map<String, _sessionKey> map;
-	String path;
+	UnicodeString path;
 	TCriticalSection *ThreadLock;
 
 	//std::map<_sessionKey, String, compareClass> map;

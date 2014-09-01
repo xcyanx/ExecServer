@@ -56,15 +56,29 @@ std::vector<TForm1::Pair> TForm1::findXMLTag(char *XMLString, char* XMLTag, int 
 		found = (char*)found + XMLTagEnd.Length();
 
 		result.push_back(pair);
-    }
+	}
 
 	return result;
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::dataReqRoutesServe(TCustomIpClient *ClientSocket)
 {
-	char *test_xml = "<ROUTES><NAME RID=\"1\">TEST</NAME><NAME RID=\"2\">TEST2</NAME></ROUTES>";
-	//Build the routes xml.
+	UnicodeString filename = path + UnicodeString("routeList\\routeList.xml");
+	TXMLDocument *xmlDoc = new TXMLDocument(NULL);
+	AnsiString xmlContent;
+
+	if(!FileExists(filename))
+	{
+    	buildRouteList(0);
+    }
+
+	xmlDoc->LoadFromFile(filename);
+	xmlDoc->Active = true;
+	xmlContent = xmlDoc->XML->Text;
+
+	xmlDoc->Active = false;
+	delete xmlDoc;
+
 	String ipPort = ClientSocket->RemoteHost;
 	BasicPacket packet;
 
@@ -75,40 +89,50 @@ void __fastcall TForm1::dataReqRoutesServe(TCustomIpClient *ClientSocket)
 	NextPacketSize packetSize;
 
 	packetSize.PacketID = BasicPacket::DATA_PACKETSIZE;
-	packetSize.size = strlen(test_xml);
+	packetSize.size = xmlContent.Length();
 
 	ClientSocket->SendBuf(&packetSize, sizeof(NextPacketSize));
 
-			//Remove it.
 	Sleep(100);
 
 	XMLPacket *xml;
 
-	xml = (XMLPacket*)malloc(sizeof(XMLPacket)+strlen(test_xml));
+	xml = (XMLPacket*)malloc(sizeof(XMLPacket)+xmlContent.Length());
 
 	xml->PacketID = BasicPacket::DATA_XMLDATA;
 
-	memcpy(xml->xmlData, test_xml, strlen(test_xml));
+	memcpy(xml->xmlData, xmlContent.c_str(), xmlContent.Length());
 
-	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
+	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+xmlContent.Length());
 
 	free(xml);
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::dataReqRouteDataServe(TCustomIpClient *ClientSocket)
 {
-	char *test_xml = "<ROUTES><NAME RID=\"1\">TEST</NAME><NAME RID=\"2\">TEST2</NAME></ROUTES>";
-	RRouteData test;
+	TXMLDocument *xmlDoc = new TXMLDocument(NULL);
+	AnsiString xmlContent;
+	RRouteData rd;
 	String ipPort = ClientSocket->RemoteHost;
+	UnicodeString filename;
 
-	ClientSocket->ReceiveBuf(&test, sizeof(RRouteData));
 
-	Memo1->Lines->Add(String("Client ")+map.find(ipPort)->second.username+String(" Requesting route data for route ")+String(test.route_name));
+	ClientSocket->ReceiveBuf(&rd, sizeof(RRouteData));
+
+	Memo1->Lines->Add(String("Client ")+map.find(ipPort)->second.username+String(" Requesting route data for route ")+IntToStr(rd.route_id));
+
+	filename = path + UnicodeString("routes\\")+IntToStr(rd.route_id)+UnicodeString(".xml");
+	xmlDoc->Active = true;
+	xmlDoc->LoadFromFile(filename);
+	xmlContent = xmlDoc->XML->Text;
+    xmlDoc->Active = false;
+
+	delete xmlDoc;
 
 	NextPacketSize npk;
 
 	npk.PacketID = BasicPacket::DATA_PACKETSIZE;
-	npk.size = 10;
+	npk.size = xmlContent.Length();
 
 	ClientSocket->SendBuf(&npk, sizeof(NextPacketSize));
 
@@ -116,15 +140,15 @@ void __fastcall TForm1::dataReqRouteDataServe(TCustomIpClient *ClientSocket)
 
 	XMLPacket *xml;
 
-	xml = (XMLPacket*)malloc(sizeof(XMLPacket)+strlen(test_xml));
+	xml = (XMLPacket*)malloc(sizeof(XMLPacket)+xmlContent.Length());
 
 	xml->PacketID = BasicPacket::DATA_ROUTEDATA;
 
-	memcpy(xml->xmlData, test_xml, strlen(test_xml));
+	memcpy(xml->xmlData, xmlContent.c_str(), xmlContent.Length());
 
 	//Memo1->Lines->Add(test.route_name);
 
-	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+strlen(test_xml));
+	ClientSocket->SendBuf(xml, sizeof(XMLPacket)+xmlContent.Length());
 
 	free(xml);
 }
@@ -133,7 +157,7 @@ void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 {
 	NextPacketSize npk;
 	TXMLDocument *xml;
-	AnsiString filename;
+	UnicodeString filename;
 	String routeName;
 	String uname = map.find(ClientSocket->RemoteHost)->second.username;
 	int lastRouteId;
@@ -154,12 +178,11 @@ void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 
 	std::string final_xml(buffer, npk.size);
 
-	xml = new TXMLDocument(this);
+	xml = new TXMLDocument(NULL);
 
 
 	std::vector<TForm1::Pair> pair = findXMLTag(buffer, "<Image>", npk.size+1);
 
-	//Λάθος επειδή αλλάζει ο vector όταν αλλάζει απο binary σε base64.
 	for(int i = pair.size() - 1; i >= 0 ; i--)
 	{
 		int new_size;
@@ -204,10 +227,12 @@ void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 	filename = xml->ChildNodes->GetNode("root")->GetAttribute("filename");
 	routeName = filename;
 
+	filename = path + UnicodeString("uploadedRoutes\\") + filename;
 	filename += ".xml";
 
 	//Add the route into the database.
-	try{
+	try
+	{
 		int userId;
 
 		String SQLQuery = "SELECT idUsers FROM users WHERE Username = :uname";
@@ -244,7 +269,7 @@ void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 	}
 	catch(Exception &e)
 	{
-        ShowMessage(e.ToString());
+		Memo2->Lines->Add(e.ToString());
 	}
 	//The route has been added into the database.
 
@@ -289,7 +314,8 @@ void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 		 }
 		 catch (Exception &e)
 		 {
-			ShowMessage(e.ToString());
+		 	PageControl1->Canvas->Brush->Color = clRed;
+			Memo2->Lines->Add(e.ToString());
 		 }
 
 		 String Data = point->GetNode("Text")->GetText();
@@ -302,7 +328,7 @@ void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 		 handleData(Data, TypeOfMedia::Video);
 	}
 
-	xml->SaveToFile(filename.c_str());
+	xml->SaveToFile(filename);
 
     xml->Active = false;
 
@@ -314,13 +340,14 @@ void __fastcall TForm1::dataUpload2ServerServe(TCustomIpClient *ClientSocket)
 
 	Memo1->Lines->Add(String("Client ")+uname+String(" has uploaded the route successfully."));
 
+	//Finally since we got a new route we will add it to the routes xml.
+	buildRouteList(lastRouteId);
+
 	ThreadLock->Leave();
 }
 
 //---------------------------------------------------------------------------
 void __fastcall TForm1::buildXML(int routeId)
-{
-try
 {
 	String SQLQuery = "SELECT * FROM waypoints LEFT OUTER JOIN media ON waypoints.idWaypoints =  media.WaypointID "
 					  "WHERE routeId = :rtid";
@@ -334,7 +361,7 @@ try
 	rowsAffected = SQL->RowsAffected;
 	SQL->First();
 
-	TXMLDocument *xml = new TXMLDocument(this);
+	TXMLDocument *xml = new TXMLDocument(NULL);
 	_di_IXMLNode node, root;
 
 	xml->Options = TXMLDocOptions(2);
@@ -352,11 +379,11 @@ try
 		{
 			node = root->AddChild("point");
 
-			node->AddChild("Lat")->SetText(SQL->FieldByName("Lat")->AsAnsiString);
-			node->AddChild("Lon")->SetText(SQL->FieldByName("Lon")->AsAnsiString);
-
 			Lat = SQL->FieldByName("Lat")->AsAnsiString;
 			Lon = SQL->FieldByName("Lon")->AsAnsiString;
+
+			node->AddChild("Lat")->SetText(Lat);
+			node->AddChild("Lon")->SetText(Lon);
 		}
 
 		if(!SQL->FieldByName("idMedia")->IsNull)
@@ -387,15 +414,11 @@ try
 
 	SQL->Close();
 
-	xml->SaveToFile(IntToStr(routeId));
+	UnicodeString filePath = path+UnicodeString("routes\\")+IntToStr(routeId)+UnicodeString(".xml");
+	xml->SaveToFile(filePath);
 	xml->Active = false;
 	delete xml;
 	delete SQL;
-}
-catch(Exception &e)
-{
-    ShowMessage(e.ToString());
-}
 }
 
 //---------------------------------------------------------------------------
@@ -408,6 +431,11 @@ int __fastcall TForm1::handleData(String Data, int tom)
 	String SQLQuery = "INSERT INTO media(URLPath, WaypointID, TypeOfMedia) VALUES(:url, :wpid, :tom)";
 	TSQLQuery *SQL = new TSQLQuery(NULL);
 	TFileStream *stream = NULL;
+	UnicodeString filename = path+UnicodeString("Files\\");
+	wchar_t buffer[1024];
+	String tmpName = GetTempFileName(filename.c_str(), NULL, 1, buffer);
+
+	filename += tmpName;
 
 	SQL->SQLConnection = SQLConnection;
 	SQL->SQL->Text = SQLQuery;
@@ -422,12 +450,12 @@ int __fastcall TForm1::handleData(String Data, int tom)
 		}
 		case TypeOfMedia::Image:
 		{
-			stream = new TFileStream("testfile.jpg", fmCreate);
+			stream = new TFileStream(filename+UnicodeString(".jpg"), fmCreate);
 		}
 		case TypeOfMedia::Video:
 		{
 			if(stream == NULL)
-				stream = new TFileStream("testfile.m4v", fmCreate);
+				stream = new TFileStream(filename+UnicodeString(".m4v"), fmCreate);
 
 			Base64Dec->DecodeBegin(stream);
 			Base64Dec->DecodeStream(Data, stream);
@@ -494,6 +522,9 @@ void __fastcall TForm1::LoadXML()
 	String uname = root->GetNode("DB")->GetChildNodes()->GetNode("uname")->Text,
 		   host = root->GetNode("DB")->GetChildNodes()->GetNode("Host")->Text,
 		   pass = root->GetNode("DB")->GetChildNodes()->GetNode("pass")->Text;
+
+	path = root->GetNode("General")->GetChildNodes()->GetNode("Path")->GetText();
+	Memo1->Lines->Add(UnicodeString("Application path set to: ")+path);
 
 	SQLConnection->Params->Add("User_Name="+uname);
 	SQLConnection->Params->Add("HostName="+host);
@@ -637,6 +668,90 @@ void __fastcall TForm1::Timer1Timer(TObject *Sender)
 		}
 	}
 }
+
 //---------------------------------------------------------------------------
+void __fastcall TForm1::buildRouteList(int routeId)
+{
+//<ROUTES><NAME RID=\"1\">TEST</NAME><NAME RID=\"46\">TEST2</NAME></ROUTES>"
+
+	UnicodeString filename = path + UnicodeString("routeList\\routeList.xml");
+
+	if(FileExists(filename))
+	{
+        updateRouteList(routeId);
+	}
+	else
+	{
+		int rowsAffected;
+		String SQLQuery = "Select idRoutes, routeName FROM routes";
+		TSQLQuery *SQL = new TSQLQuery(NULL);
+		TXMLDocument *xml = new TXMLDocument(NULL);
+		_di_IXMLNode node, root;
+
+		xml->Options = TXMLDocOptions(2);
+		xml->Active = true;
+
+		SQL->SQLConnection = SQLConnection;
+		SQL->SQL->Text = SQLQuery;
+
+		SQL->Open();
+		SQL->First();
+		rowsAffected = SQL->RowsAffected;
+
+		root = xml->AddChild("ROUTES");
+		for(int i = 0; i < rowsAffected; i++)
+		{
+			node = root->AddChild("NAME");
+			node->SetText(SQL->FieldByName("routeName")->AsAnsiString);
+			node->SetAttribute("RID", SQL->FieldByName("idRoutes")->AsAnsiString);
+
+			SQL->Next();
+		}
+
+		SQL->Close();
+
+		xml->SaveToFile(filename);
+		xml->Active = false;
+
+		delete SQL;
+    }
+}
+
+void __fastcall TForm1::updateRouteList(int routeId)
+{
+	UnicodeString filename = path + UnicodeString("routeList\\routeList.xml");
+	int rowsAffected;
+	String SQLQuery = "Select idRoutes, routeName FROM routes WHERE idRoutes = :rt";
+	TSQLQuery *SQL = new TSQLQuery(NULL);
+	TXMLDocument *xml = new TXMLDocument(NULL);
+	_di_IXMLNode node, root;
+
+	xml->Options = TXMLDocOptions(2);
+	xml->LoadFromFile(filename);
+	xml->Active = true;
+
+	SQL->SQLConnection = SQLConnection;
+	SQL->SQL->Text = SQLQuery;
+	SQL->ParamByName("rt")->AsInteger = routeId;
+
+	SQL->Open();
+	rowsAffected = SQL->RowsAffected;
+    SQL->First();
+
+	root = xml->ChildNodes->FindNode("ROUTES");
+	node = root->AddChild("NAME");
+	node->SetAttribute("RID", IntToStr(routeId));
+	node->SetText(SQL->FieldByName("routeName")->AsAnsiString);
+
+	SQL->Close();
+
+	xml->SaveToFile(filename);
+	xml->Active = false;
+
+	delete SQL;
+}
+
+
+
 
 

@@ -40,7 +40,7 @@ struct BasicPacket
 
 struct RRouteData: public BasicPacket
 {
-	char route_name[200];
+	int route_id;
 };
 
 struct NextPacketSize: public BasicPacket
